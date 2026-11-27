@@ -1,0 +1,45 @@
+name: Deploy AtonAI Vision MCP to Hugging Face
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: atonai-vision-hf-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GitHub repository
+        uses: actions/checkout@v4
+
+      - name: Check deployment secret
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "HF_TOKEN repository secret is missing" >&2
+            exit 1
+          fi
+
+      - name: Extract and deploy source to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -s atonai_vision_mcp_source.zip.b64
+          base64 -d atonai_vision_mcp_source.zip.b64 > "$RUNNER_TEMP/vision-source.zip"
+          mkdir -p "$RUNNER_TEMP/vision-source"
+          unzip -q "$RUNNER_TEMP/vision-source.zip" -d "$RUNNER_TEMP/vision-source"
+          cd "$RUNNER_TEMP/vision-source/atonai_vision_mcp_v2"
+          git init -b main
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Deploy AtonAI Vision MCP"
+          git remote add hf "https://user:${HF_TOKEN}@huggingface.co/spaces/hfvps513/WatchAnimeHD_Bot"
+          git push hf main --force
